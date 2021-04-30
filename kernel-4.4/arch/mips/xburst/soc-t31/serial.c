@@ -24,7 +24,6 @@ static void check_uart(char c);
 static volatile u8 *uart_base;
 typedef void (*putchar_f_t)(char);
 static putchar_f_t putchar_f = check_uart;
-
 static void putchar(char ch)
 {
 	int timeout = 10000;
@@ -35,24 +34,22 @@ static void putchar(char ch)
 		;
 	base[OFF_TDR] = (u8)ch;
 }
-
 static void putchar_dummy(char ch)
 {
 	return;
 }
-
 static void check_uart(char c)
 {
 	/* We Couldn't use ioremap() here */
 	volatile u8 *base = (volatile u8*)CKSEG1ADDR(UART0_IOBASE);
-	int i = 0;
-	for(i=0; i<10; i++) {
+	int i;
+	for(i=0; i<4; i++) {
 		if(base[OFF_LCR])
 			break;
 		base += UART_OFF;
 	}
 
-	if(i<10) {
+	if(i<4) {
 		uart_base = base;
 		putchar_f = putchar;
 		putchar_f(c);
@@ -66,7 +63,6 @@ void prom_putchar(char c)
 {
 	putchar_f(c);
 }
-
 void prom_putstr(char *s)
 {
 	while(*s) {
@@ -77,7 +73,7 @@ void prom_putstr(char *s)
 	}
 }
 
-#if 1
+#if 0
 static char pbuffer[4096];
 void prom_printk(const char *fmt, ...) {
 	va_list args;

@@ -1,5 +1,5 @@
 /*
- * Ingenic Soc Setup
+ * JZSOC Clock and Power Manager
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
@@ -15,34 +15,44 @@
 #include <linux/err.h>
 #include <linux/proc_fs.h>
 #include <linux/ioport.h>
-#include <linux/of_fdt.h>
-#include <linux/of_platform.h>
-#include <linux/clk-provider.h>
-#include <linux/clocksource.h>
-#include <linux/irqchip.h>
-#include <linux/clocksource.h>
 
-#include <asm/prom.h>
+#include <soc/cpm.h>
 #include <soc/base.h>
+#include <soc/extal.h>
+#include <mach/platform.h>
 
 void __init cpm_reset(void)
 {
+#ifndef CONFIG_FPGA_TEST
+	unsigned long clkgr = cpm_inl(CPM_CLKGR);
+	unsigned long clkgr1 = cpm_inl(CPM_CLKGR1);
+
+	clkgr &= ~(1 << 28	/* DES */
+		| 1 << 26	/* TVE */
+		| 1 << 13	/* SADC */
+		);
+	cpm_outl(clkgr, CPM_CLKGR);
+
+	clkgr1 &= ~(1 << 3);
+	cpm_outl(clkgr1, CPM_CLKGR1);
+	/* TODO set default clkgr here */
+#endif
 }
 
 int __init setup_init(void)
 {
-#if 0
 	cpm_reset();
 	/* Set bus priority here */
 	*(volatile unsigned int *)0xb34f0240 = 0x00010003;
 	*(volatile unsigned int *)0xb34f0244 = 0x00010003;
-#endif
 
 	return 0;
 }
-extern void __init init_all_clk(void);
+void __cpuinit jzcpu_timer_setup(void);
+void __cpuinit jz_clocksource_init(void);
+void __init init_all_clk(void);
 /* used by linux-mti code */
-extern void *get_fdt_addr(void);
+
 void __init plat_mem_setup(void)
 {
 	/* use IO_BASE, so that we can use phy addr on hard manual
@@ -54,81 +64,13 @@ void __init plat_mem_setup(void)
 	iomem_resource.start	= 0x00000000;
 	iomem_resource.end	= 0xffffffff;
 	setup_init();
-
-	__dt_setup_arch(get_fdt_addr());
+	init_all_clk();
 
 	return;
 }
-void __init device_tree_init(void)
-{
-	unflatten_and_copy_device_tree();
-}
-
-static int __init plat_of_populate(void)
-{
-	of_platform_default_populate(NULL, NULL, NULL);
-	return 0;
-}
-arch_initcall(plat_of_populate);
 
 void __init plat_time_init(void)
 {
-	of_clk_init(NULL);
-
-	clocksource_probe();
+	jzcpu_timer_setup();
+	jz_clocksource_init();
 }
-
-void __init arch_init_irq(void)
-{
-	irqchip_init();
-}
-unsigned long rmem_base = 0;
-EXPORT_SYMBOL(rmem_base);
-
-unsigned long rmem_size = 0;
-EXPORT_SYMBOL(rmem_size);
-
-unsigned long ispmem_base = 0;
-EXPORT_SYMBOL(ispmem_base);
-
-unsigned long ispmem_size = 0;
-EXPORT_SYMBOL(ispmem_size);
-
-static int __init ispmem_parse(char *str)
-{
-	char *retptr;
-
-	ispmem_size = memparse(str, &retptr);
-	if(ispmem_size < 0) {
-		ispmem_size = 0;
-	}
-
-	if (*retptr == '@')
-		ispmem_base = memparse(retptr + 1, NULL);
-
-	if(ispmem_base < 0) {
-		printk("## no ispmem! ##\n");
-	}
-	return 1;
-}
-
-static int __init rmem_parse(char *str)
-{
-	char *retptr;
-
-	rmem_size = memparse(str, &retptr);
-	if(rmem_size < 0) {
-		rmem_size = 0;
-	}
-
-	if (*retptr == '@')
-		rmem_base = memparse(retptr + 1, NULL);
-
-	if(rmem_base < 0) {
-		printk("## no rmem! ##\n");
-	}
-	return 1;
-}
-__setup("rmem=", rmem_parse);
-
-__setup("ispmem=", ispmem_parse);

@@ -376,7 +376,7 @@ static void cpu_write_txfifo(struct sfc *sfc)
 
 uint32_t sfc_get_sta_rt(struct sfc *sfc)
 {
-	return sfc_readl(sfc, SFC_DEV0_STA_RT);
+	return sfc_readl(sfc, SFC_DEV_STA_RT);
 }
 
 static void sfc_dev_sta_exp(struct sfc *sfc, uint32_t value)
